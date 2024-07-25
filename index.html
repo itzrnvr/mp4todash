@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DASH.js Encrypted Video Player with Quality Switching</title>
+    <script src="https://cdn.dashjs.org/latest/dash.all.min.js"></script>
+</head>
+<body>
+    <div>
+        <video id="videoPlayer" controls></video>
+    </div>
+    <div>
+        <label for="qualitySelect">Video Quality:</label>
+        <select id="qualitySelect"></select>
+    </div>
+    <script>
+        const mpdUrl = 'http://localhost:8000/stream/stream.mpd';  // Replace with your actual MPD URL
+        const player = dashjs.MediaPlayer().create();
+        player.initialize();
+        const videoElement = document.querySelector('#videoPlayer');
+        const qualitySelect = document.getElementById('qualitySelect');
+
+        player.attachView(videoElement);
+
+        const protectionData = {
+            "org.w3.clearkey": {
+                "clearkeys": {
+                    "oW5AK5BW43HzbTSKpiu3SQ": "hyN9IKGfWKdAwFaE5pm0qg"
+                }
+            }
+        };
+        player.setProtectionData(protectionData);
+
+        player.attachSource(mpdUrl);
+
+        player.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, function() {
+            const qualities = player.getBitrateInfoListFor('video');
+            const autoQuality = { quality: 'auto', bitrate: Infinity };
+            qualities.unshift(autoQuality);
+
+            qualities.forEach((quality, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.text = quality === autoQuality ? 'Auto' : `${quality.height}p`;
+                qualitySelect.appendChild(option);
+            });
+        });
+
+        qualitySelect.addEventListener('change', function() {
+            const qualityIndex = parseInt(this.value);
+            if (qualityIndex === 0) {
+                player.updateSettings({ 'streaming': { 'abr': { 'autoSwitchBitrate': { 'video': true } } } });
+            } else {
+                player.updateSettings({ 'streaming': { 'abr': { 'autoSwitchBitrate': { 'video': false } } } });
+                player.setQualityFor('video', qualityIndex - 1);
+            }
+        });
+
+        videoElement.addEventListener('canplay', function() {
+            videoElement.play().catch(error => {
+                console.log("Auto-play prevented, attempting manual play.");
+            });
+        });
+
+        player.on(dashjs.MediaPlayer.events.LOG, function(e) {
+            console.log(e.message);
+        });
+
+        videoElement.addEventListener('play', function() {
+            console.log("Video is playing.");
+        });
+
+        videoElement.addEventListener('pause', function() {
+            console.log("Video is paused.");
+        });
+
+        videoElement.addEventListener('error', function(e) {
+            const error = e.target.error;
+            console.error("Error occurred:", error);
+        });
+    </script>
+</body>
+</html>
+
+
+
+
